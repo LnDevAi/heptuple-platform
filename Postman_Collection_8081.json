@@ -1,0 +1,151 @@
+{
+	"info": {
+		"_postman_id": "heptuple-vision-api-8081",
+		"name": "Vision Heptuple API - Port 8081",
+		"description": "Collection Postman pour tester l'API Vision Heptuple sur le port 8081",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Health & Info",
+			"item": [
+				{
+					"name": "Root - API Info",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/",
+							"host": ["{{base_url}}"],
+							"path": [""]
+						}
+					}
+				},
+				{
+					"name": "Health Check",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/health",
+							"host": ["{{base_url}}"],
+							"path": ["api", "health"]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Sourates",
+			"item": [
+				{
+					"name": "Get All Sourates",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v2/sourates",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v2", "sourates"]
+						}
+					}
+				},
+				{
+					"name": "Get Al-Fatiha (1)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v2/sourates/1",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v2", "sourates", "1"]
+						}
+					}
+				},
+				{
+					"name": "Get Al-Ikhlas (112)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v2/sourates/112",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v2", "sourates", "112"]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Analysis",
+			"item": [
+				{
+					"name": "Analyze Arabic Text",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"texte\": \"بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ\",\n  \"langue\": \"ar\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v2/analyze",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v2", "analyze"]
+						}
+					}
+				},
+				{
+					"name": "Analyze French Text",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"texte\": \"Au nom d'Allah, le Tout Miséricordieux\",\n  \"langue\": \"fr\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v2/analyze",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v2", "analyze"]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Dimensions",
+			"item": [
+				{
+					"name": "Get All Dimensions",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v2/dimensions",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v2", "dimensions"]
+						}
+					}
+				}
+			]
+		}
+	],
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:8081",
+			"type": "string"
+		}
+	]
+}

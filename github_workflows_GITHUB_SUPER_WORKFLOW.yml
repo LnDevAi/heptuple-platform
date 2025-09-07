@@ -1,0 +1,44 @@
+name: GITHUB_SUPER_WORKFLOW
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up SSH
+        uses: webfactory/ssh-agent@v0.8.0
+        with:
+          ssh-private-key: ${{ secrets.VPS_SSH_KEY }}
+
+      - name: Deploy and Start All Services
+        run: |
+          ssh -o StrictHostKeyChecking=no root@213.199.63.30 << 'EOF'
+            echo "=== Déploiement Backend ==="
+            cd /opt/heptuple/backend
+            git pull
+            pip install -r requirements.txt
+            python manage.py migrate
+            systemctl restart heptuple-backend
+
+            echo "=== Déploiement Frontend ==="
+            cd /opt/heptuple/frontend
+            git pull
+            npm install
+            npm run build
+            systemctl restart heptuple-frontend
+
+            echo "=== Démarrage Base de Données ==="
+            systemctl restart postgresql
+
+            echo "=== Liens de vérification ==="
+            echo "Backend: http://213.199.63.30:8000"
+            echo "Frontend: http://213.199.63.30:3000"
+          EOF

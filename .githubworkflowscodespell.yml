@@ -1,0 +1,31 @@
+name: Codespell Audit & Auto-Fix
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  codespell:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install codespell
+        run: pip install codespell
+
+      - name: Auto-fix with codespell
+        run: |
+          codespell --ignore-words-list="nd,nm" --skip="*.pyc,*.lock,*.svg,*.png,*.jpg,*.jpeg,*.gif,*.ico,.git,venv,env,build,node_modules" -w .
+          git config --global user.email "actions@github.com"
+          git config --global user.name "GitHub Actions"
+          git diff --quiet || (git add . && git commit -m "fix: codespell auto-corrections" && git push)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

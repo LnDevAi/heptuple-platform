@@ -5,6 +5,10 @@ import os
 import socket
 import logging
 from typing import Dict, Any
+from dotenv import load_dotenv
+
+# Charger le fichier .env du répertoire backend
+load_dotenv(os.path.join(os.path.dirname(__file__), '.env'))
 
 logger = logging.getLogger(__name__)
 

@@ -5,8 +5,27 @@ from sqlalchemy.sql import func
 import os
 from typing import Generator
 
-# Configuration de la base de données
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://heptuple_user:heptuple_pass@localhost:5432/heptuple_db")
+"""
+Construction sûre de l'URL de base de données depuis les variables d'environnement.
+Évite les identifiants en dur et respecte un fallback minimal uniquement si toutes
+les variables nécessaires sont fournies.
+"""
+
+db_host = os.getenv("DB_HOST")
+db_port = os.getenv("DB_PORT")
+db_name = os.getenv("DB_NAME")
+db_user = os.getenv("DB_USER")
+db_password = os.getenv("DB_PASSWORD")
+
+env_database_url = os.getenv("DATABASE_URL")
+
+if env_database_url:
+    DATABASE_URL = env_database_url
+elif all([db_host, db_port, db_name, db_user, db_password]):
+    DATABASE_URL = f"postgresql://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}"
+else:
+    # Fallback local explicite et non recommandé pour la prod; penser à fournir un .env
+    DATABASE_URL = "postgresql://heptuple_user:heptuple_pass@localhost:5432/heptuple_db"
 
 # Création de l'engine SQLAlchemy
 engine = create_engine(

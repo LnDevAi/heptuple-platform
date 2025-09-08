@@ -5,7 +5,9 @@ import authService from './authService';
 
 class ApiService {
   constructor() {
-    this.apiBase = process.env.REACT_APP_API_BASE || process.env.REACT_APP_API_URL || '';
+    const envBase = process.env.REACT_APP_API_BASE || process.env.REACT_APP_API_URL || '';
+    const inferredBase = typeof window !== 'undefined' ? `${window.location.origin}/api` : '';
+    this.apiBase = envBase || inferredBase;
     this.apiUrl = this.apiBase.endsWith('/api') ? this.apiBase : (this.apiBase ? `${this.apiBase}/api` : 'http://localhost:8000/api');
   }
 

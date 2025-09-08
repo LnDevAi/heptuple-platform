@@ -25,6 +25,7 @@ from models import (
 from services.heptuple_analyzer import HeptupleAnalyzer
 from services.auth_service import AuthService
 from services.search_service import SearchService
+from services.redis_service import RedisService
 from database import get_db, DatabaseService, check_database_connection, User
 from sqlalchemy.orm import Session
 
@@ -395,7 +396,6 @@ async def analyze_text_enriched(request: AnalyseRequest, db: Session = Depends(g
         
         # Enrichissement avec références
         db_service = DatabaseService(db)
-        dimension = result["dimension_dominante"]
         
         # Récupération des références par dimension
         hadiths = db_service.get_hadiths_by_dimension(str(int(analysis.dimension_dominante)), 3)

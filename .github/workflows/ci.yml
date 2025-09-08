@@ -1,0 +1,70 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  backend:
+    name: Backend (Python)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install backend dependencies
+        run: pip install -r backend/requirements.txt
+
+      - name: Syntax check backend
+        run: python -m compileall -q backend
+
+      - name: Import FastAPI app (smoke import)
+        env:
+          SECRET_KEY: dummy_secret_key_at_least_32_chars_long_123456
+          JWT_SECRET_KEY: dummy_jwt_secret_key_at_least_32_chars_long
+          DB_HOST: localhost
+          DB_PORT: '5432'
+          DB_NAME: heptuple_db
+          DB_USER: heptuple_user
+          DB_PASSWORD: heptuple_pass
+          REDIS_HOST: localhost
+          REDIS_PORT: '6379'
+        run: |
+          python - <<'PY'
+          import importlib
+          m = importlib.import_module('backend.main')
+          print(getattr(m, 'app', None) and 'APP_OK' or 'APP_MISSING')
+          PY
+
+  frontend:
+    name: Frontend (React build)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: |
+          if [ -f package-lock.json ]; then npm ci; else npm install; fi
+
+      - name: Build frontend
+        working-directory: frontend
+        env:
+          REACT_APP_API_URL: http://localhost:8080/api
+        run: npm run build

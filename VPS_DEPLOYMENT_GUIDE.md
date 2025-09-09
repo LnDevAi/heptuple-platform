@@ -73,6 +73,23 @@ certbot --nginx -d votre-domaine.com -d www.votre-domaine.com
 certbot renew --dry-run
 ```
 
+## 🗄️ Base de données et données réelles
+
+Après l'installation, appliquez extensions, index et ingestion d'exemples:
+
+```bash
+sudo -u postgres psql -d heptuple_db -c "CREATE EXTENSION IF NOT EXISTS pg_trgm;"
+sudo -u postgres psql -d heptuple_db -c "CREATE EXTENSION IF NOT EXISTS unaccent;"
+
+# Index et optimisations
+psql -U heptuple_user -d heptuple_db -f /opt/heptuple-platform/db/schema_indexes.sql || true
+
+# Exemples d'ingestion (remplacez par vos datasets réels)
+psql -U heptuple_user -d heptuple_db -f /opt/heptuple-platform/db/ingest_samples.sql || true
+```
+
+Ces scripts préparent la recherche rapide (trigram, GIN) pour hadiths, fiqh, invocations.
+
 ## 🔧 Gestion des Services
 
 ### Commandes de base

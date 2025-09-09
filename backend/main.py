@@ -551,6 +551,51 @@ async def get_hadiths_by_dimension(dimension: str, limit: int = 10, db: Session 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erreur: {str(e)}")
 
+@app.get("/api/v2/hadiths/collections")
+async def get_hadiths_collections(db: Session = Depends(get_db)):
+    """Retourne la liste des recueils avec leur nombre de hadiths (BD réelle)."""
+    try:
+        db_service = DatabaseService(db)
+        return db_service.get_hadiths_collections_summary()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erreur: {str(e)}")
+
+@app.get("/api/v2/hadiths")
+async def search_hadiths_authentic(
+    query: Optional[str] = None,
+    recueils: Optional[str] = None,  # CSV: "Bukhari,Muslim"
+    authenticite: Optional[str] = None,  # ex: "Sahih%"
+    limit: int = 20,
+    offset: int = 0,
+    db: Session = Depends(get_db)
+):
+    """Recherche de hadiths authentiques par texte/recueil/authenticité (BD réelle)."""
+    try:
+        db_service = DatabaseService(db)
+        rec_list = [r.strip() for r in recueils.split(',')] if recueils else None
+        hadiths = db_service.search_hadiths_authentic(query=query, recueils=rec_list,
+                                                      authenticite=authenticite, limit=limit, offset=offset)
+        return [
+            {
+                "id": h.id,
+                "numero_hadith": h.numero_hadith,
+                "recueil": h.recueil,
+                "livre": h.livre,
+                "chapitre": h.chapitre,
+                "texte_arabe": h.texte_arabe,
+                "texte_francais": h.texte_francais,
+                "narrateur": h.narrateur,
+                "degre_authenticite": h.degre_authenticite,
+                "dimension_heptuple": h.dimension_heptuple,
+                "mots_cles": h.mots_cles or [],
+                "themes": h.themes or [],
+                "contexte_historique": h.contexte_historique
+            }
+            for h in hadiths
+        ]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erreur: {str(e)}")
+
 @app.get("/api/v2/exegeses/{dimension}")
 async def get_exegeses_by_dimension(dimension: str, limit: int = 5, db: Session = Depends(get_db)):
     """Récupère les exégèses par dimension heptuple"""
@@ -959,6 +1004,46 @@ async def search_fiqh_advanced(
     except Exception as e:
         log_error(e, "Erreur de recherche Fiqh")
         raise HTTPException(status_code=500, detail="Erreur de recherche Fiqh")
+
+# ===== MODULE FIQH (RITES) =====
+
+@app.get("/api/v2/fiqh/rites")
+async def list_fiqh_rites(db: Session = Depends(get_db)):
+    """Liste des rites disponibles (BD réelle)."""
+    try:
+        db_service = DatabaseService(db)
+        return {"rites": db_service.list_fiqh_rites()}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erreur: {str(e)}")
+
+@app.get("/api/v2/fiqh/rulings")
+async def list_fiqh_rulings(
+    query: Optional[str] = None,
+    rite: Optional[str] = None,
+    topic: Optional[str] = None,
+    limit: int = 20,
+    offset: int = 0,
+    db: Session = Depends(get_db)
+):
+    """Recherche paginée des rulings fiqh (BD réelle)."""
+    try:
+        db_service = DatabaseService(db)
+        rulings = db_service.search_fiqh_rulings(query=query, rite=rite, topic=topic, limit=limit, offset=offset)
+        return [
+            {
+                "id": r.id,
+                "rite": r.rite,
+                "topic": r.topic,
+                "question": r.question,
+                "ruling_text": r.ruling_text,
+                "evidences": r.evidences or [],
+                "sources": r.sources or [],
+                "keywords": r.keywords or []
+            }
+            for r in rulings
+        ]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erreur: {str(e)}")
 
 # Fonctions utilitaires
 def calculate_similarity(profile_a: Dict, profile_b: Dict) -> float:

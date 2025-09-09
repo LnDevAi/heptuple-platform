@@ -370,6 +370,31 @@ class DatabaseService:
             or_(Hadith.texte_francais.ilike(q), Hadith.texte_arabe.ilike(q), Hadith.mots_cles.any(query))
         ).limit(limit).all()
 
+    def search_hadiths_authentic(self, query: str | None = None, recueils: list[str] | None = None,
+                                  authenticite: str | None = None, limit: int = 20, offset: int = 0):
+        """Recherche de hadiths authentiques avec filtres (recueils, authenticité, texte)."""
+        query_builder = self.db.query(Hadith)
+        if query:
+            q = f"%{query}%"
+            query_builder = query_builder.filter(
+                or_(
+                    Hadith.texte_francais.ilike(q),
+                    Hadith.texte_arabe.ilike(q),
+                    Hadith.narrateur.ilike(q),
+                    Hadith.recueil.ilike(q)
+                )
+            )
+        if recueils:
+            query_builder = query_builder.filter(Hadith.recueil.in_(recueils))
+        if authenticite:
+            query_builder = query_builder.filter(Hadith.degre_authenticite.ilike(authenticite))
+        return query_builder.offset(offset).limit(limit).all()
+
+    def get_hadiths_collections_summary(self) -> list[dict]:
+        """Retourne le nombre de hadiths par recueil."""
+        rows = self.db.query(Hadith.recueil, func.count(Hadith.id)).group_by(Hadith.recueil).order_by(func.count(Hadith.id).desc()).all()
+        return [{"recueil": r[0], "count": int(r[1])} for r in rows]
+
     def search_exegeses(self, query: str, limit: int = 20):
         q = f"%{query}%"
         return self.db.query(Exegese).filter(
@@ -400,3 +425,25 @@ class DatabaseService:
         if rite:
             filters.append(FiqhRuling.rite == rite)
         return self.db.query(FiqhRuling).filter(*filters).limit(limit).all()
+
+    def list_fiqh_rites(self) -> list[str]:
+        """Liste distincte des rites disponibles dans les rulings."""
+        rows = self.db.query(FiqhRuling.rite).distinct().all()
+        return [r[0] for r in rows if r[0]]
+
+    def search_fiqh_rulings(self, query: str | None = None, rite: str | None = None,
+                             topic: str | None = None, limit: int = 20, offset: int = 0):
+        """Recherche paginée de rulings fiqh avec filtres."""
+        qb = self.db.query(FiqhRuling)
+        if query:
+            q = f"%{query}%"
+            qb = qb.filter(or_(
+                FiqhRuling.topic.ilike(q),
+                FiqhRuling.question.ilike(q),
+                FiqhRuling.ruling_text.ilike(q)
+            ))
+        if rite:
+            qb = qb.filter(FiqhRuling.rite == rite)
+        if topic:
+            qb = qb.filter(FiqhRuling.topic.ilike(f"%{topic}%"))
+        return qb.offset(offset).limit(limit).all()

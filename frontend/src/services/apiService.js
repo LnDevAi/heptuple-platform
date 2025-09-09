@@ -43,6 +43,56 @@ class ApiService {
   }
 
   /**
+   * Liste des recueils de hadiths (avec compte)
+   */
+  async getHadithCollections() {
+    return this.get('/v2/hadiths/collections');
+  }
+
+  /**
+   * Recherche de hadiths authentiques
+   */
+  async searchAuthenticHadiths({ query = '', recueils = [], authenticite = '', limit = 20, offset = 0 } = {}) {
+    const params = new URLSearchParams();
+    if (query) params.set('query', query);
+    if (recueils && recueils.length > 0) params.set('recueils', recueils.join(','));
+    if (authenticite) params.set('authenticite', authenticite);
+    params.set('limit', String(limit));
+    params.set('offset', String(offset));
+    const response = await authService.authenticatedRequest(`${this.apiUrl}/v2/hadiths?${params.toString()}`);
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: 'Erreur de recherche hadiths' }));
+      throw new Error(error.detail || `Erreur ${response.status}`);
+    }
+    return response.json();
+  }
+
+  /**
+   * Liste des rites disponibles
+   */
+  async listFiqhRites() {
+    return this.get('/v2/fiqh/rites');
+  }
+
+  /**
+   * Recherche paginée des rulings fiqh
+   */
+  async listFiqhRulings({ query = '', rite = '', topic = '', limit = 20, offset = 0 } = {}) {
+    const params = new URLSearchParams();
+    if (query) params.set('query', query);
+    if (rite) params.set('rite', rite);
+    if (topic) params.set('topic', topic);
+    params.set('limit', String(limit));
+    params.set('offset', String(offset));
+    const response = await authService.authenticatedRequest(`${this.apiUrl}/v2/fiqh/rulings?${params.toString()}`);
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: 'Erreur de recherche fiqh' }));
+      throw new Error(error.detail || `Erreur ${response.status}`);
+    }
+    return response.json();
+  }
+
+  /**
    * Récupère la liste des sourates
    */
   async getSourates() {

@@ -186,6 +186,17 @@ class AnalyseEnrichie(BaseModel):
     histoires: List[HistoireModel] = []
     score_enrichissement: float = Field(..., description="Score d'enrichissement")
 
+# Modèle d'invocation (dou'a)
+class InvocationModel(BaseModel):
+    id: Optional[int] = None
+    titre: str
+    texte_arabe: str
+    texte_traduit: Optional[str] = None
+    source: Optional[str] = None
+    categories: Optional[List[str]] = None
+    tags: Optional[List[str]] = None
+    temps_recommande: Optional[List[str]] = None  # matin, soir, après-prière, etc.
+
 # Modèles d'authentification
 class UserCreate(BaseModel):
     username: str = Field(..., min_length=3, max_length=50, description="Nom d'utilisateur")

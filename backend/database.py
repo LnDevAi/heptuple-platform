@@ -272,6 +272,18 @@ class FiqhRuling(Base):
     keywords = Column(ARRAY(String))
     created_at = Column(TIMESTAMP, default=func.now(), index=True)
 
+class Invocation(Base):
+    __tablename__ = "invocations"
+    id = Column(Integer, primary_key=True, index=True)
+    titre = Column(String(300), nullable=False)
+    texte_arabe = Column(Text, nullable=False)
+    texte_traduit = Column(Text)
+    source = Column(String(300))
+    categories = Column(ARRAY(String))
+    tags = Column(ARRAY(String))
+    temps_recommande = Column(ARRAY(String))
+    created_at = Column(TIMESTAMP, default=func.now(), index=True)
+
 class DatabaseService:
     def __init__(self, db: Session):
         self.db = db
@@ -447,3 +459,22 @@ class DatabaseService:
         if topic:
             qb = qb.filter(FiqhRuling.topic.ilike(f"%{topic}%"))
         return qb.offset(offset).limit(limit).all()
+
+    # Invocations (dou'a)
+    def search_invocations(self, query: str | None = None, categories: list[str] | None = None,
+                           tags: list[str] | None = None, limit: int = 20, offset: int = 0):
+        qb = self.db.query(Invocation)
+        if query:
+            q = f"%{query}%"
+            qb = qb.filter(or_(Invocation.titre.ilike(q), Invocation.texte_arabe.ilike(q), Invocation.texte_traduit.ilike(q)))
+        if categories:
+            for c in categories:
+                qb = qb.filter(Invocation.categories.any(c))
+        if tags:
+            for t in tags:
+                qb = qb.filter(Invocation.tags.any(t))
+        return qb.offset(offset).limit(limit).all()
+
+    def list_invocation_categories(self) -> list[str]:
+        rows = self.db.query(func.unnest(Invocation.categories)).distinct().all()
+        return [r[0] for r in rows if r[0]]

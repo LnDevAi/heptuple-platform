@@ -19,7 +19,7 @@ from models import (
     ProfilHeptuple, AnalyseRequest, AnalyseResponse, 
     ComparisonRequest, SearchRequest, SearchResult,
     FeedbackRequest, Sourate, Verset, DimensionType,
-    HadithModel, ExegeseModel, CitationModel, HistoireModel,
+    HadithModel, ExegeseModel, CitationModel, HistoireModel, InvocationModel,
     UserCreate, UserLogin, Token, UserResponse
 )
 from services.heptuple_analyzer import HeptupleAnalyzer
@@ -1013,6 +1013,48 @@ async def list_fiqh_rites(db: Session = Depends(get_db)):
     try:
         db_service = DatabaseService(db)
         return {"rites": db_service.list_fiqh_rites()}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erreur: {str(e)}")
+
+# ===== MODULE INVOCATIONS =====
+
+@app.get("/api/v2/invocations")
+async def search_invocations(
+    query: Optional[str] = None,
+    categories: Optional[str] = None,  # CSV
+    tags: Optional[str] = None,  # CSV
+    limit: int = 20,
+    offset: int = 0,
+    db: Session = Depends(get_db)
+):
+    """Recherche d'invocations (dou'a) dans la BD avec filtres et pagination."""
+    try:
+        db_service = DatabaseService(db)
+        cat_list = [c.strip() for c in categories.split(',')] if categories else None
+        tag_list = [t.strip() for t in tags.split(',')] if tags else None
+        invocs = db_service.search_invocations(query=query, categories=cat_list, tags=tag_list, limit=limit, offset=offset)
+        return [
+            InvocationModel(
+                id=i.id,
+                titre=i.titre,
+                texte_arabe=i.texte_arabe,
+                texte_traduit=i.texte_traduit,
+                source=i.source,
+                categories=i.categories or [],
+                tags=i.tags or [],
+                temps_recommande=i.temps_recommande or []
+            )
+            for i in invocs
+        ]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erreur: {str(e)}")
+
+@app.get("/api/v2/invocations/categories")
+async def list_invocation_categories(db: Session = Depends(get_db)):
+    """Liste des catégories d'invocations disponibles."""
+    try:
+        db_service = DatabaseService(db)
+        return {"categories": db_service.list_invocation_categories()}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erreur: {str(e)}")
 

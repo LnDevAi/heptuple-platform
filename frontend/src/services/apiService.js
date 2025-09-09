@@ -93,6 +93,31 @@ class ApiService {
   }
 
   /**
+   * Recherche d'invocations (dou'a)
+   */
+  async searchInvocations({ query = '', categories = [], tags = [], limit = 20, offset = 0 } = {}) {
+    const params = new URLSearchParams();
+    if (query) params.set('query', query);
+    if (categories && categories.length > 0) params.set('categories', categories.join(','));
+    if (tags && tags.length > 0) params.set('tags', tags.join(','));
+    params.set('limit', String(limit));
+    params.set('offset', String(offset));
+    const response = await authService.authenticatedRequest(`${this.apiUrl}/v2/invocations?${params.toString()}`);
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: 'Erreur de recherche invocations' }));
+      throw new Error(error.detail || `Erreur ${response.status}`);
+    }
+    return response.json();
+  }
+
+  /**
+   * Liste des catégories d'invocations
+   */
+  async listInvocationCategories() {
+    return this.get('/v2/invocations/categories');
+  }
+
+  /**
    * Récupère la liste des sourates
    */
   async getSourates() {

@@ -93,6 +93,19 @@ psql -U heptuple_user -d heptuple_db -f /opt/heptuple-platform/db/ingest_from_cs
 
 Ces scripts préparent la recherche rapide (trigram, GIN) pour hadiths, fiqh, invocations.
 
+### Ingestion via JSON (sans CSV)
+
+```bash
+# Activer le venv si nécessaire
+source /opt/heptuple-platform/venv/bin/activate
+
+# Importer depuis JSON (gabarits dans db/json_templates)
+python /opt/heptuple-platform/scripts/ingest_json.py \
+  --hadiths /opt/heptuple-platform/db/json_templates/hadiths.json \
+  --fiqh /opt/heptuple-platform/db/json_templates/fiqh_rulings.json \
+  --invocations /opt/heptuple-platform/db/json_templates/invocations.json
+```
+
 ## 🔧 Gestion des Services
 
 ### Commandes de base

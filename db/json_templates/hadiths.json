@@ -1,0 +1,16 @@
+[
+  {
+    "numero_hadith": "1",
+    "recueil": "Bukhari",
+    "livre": "Livre de la foi",
+    "chapitre": "Chapitre 1",
+    "texte_arabe": "إِنَّمَا الأَعْمَالُ بِالنِّيَّاتِ",
+    "texte_francais": "Les actions ne valent que par les intentions",
+    "narrateur": "Omar ibn al-Khattab",
+    "degre_authenticite": "Sahih",
+    "dimension_heptuple": 5,
+    "mots_cles": ["intention", "foi"],
+    "themes": ["aqida"],
+    "contexte_historique": "Médine"
+  }
+]

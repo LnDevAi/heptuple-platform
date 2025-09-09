@@ -135,36 +135,7 @@ def log_error(error: Exception, context: str = ""):
     """Log une erreur avec contexte"""
     logger.error(f"{context}: {str(error)}", exc_info=True)
 
-# Données des sourates (à remplacer par base de données)
-SOURATES_DATA = [
-    {
-        "id": 1, "numero": 1, 
-        "nom_arabe": "الفاتحة", "nom_francais": "Al-Fatiha", 
-        "type_revelation": "Mecquoise", "nombre_versets": 7,
-        "profil_heptuple": {
-            "mysteres": 85, "creation": 20, "attributs": 90, 
-            "eschatologie": 15, "tawhid": 95, "guidance": 80, "egarement": 10
-        }
-    },
-    {
-        "id": 2, "numero": 2, 
-        "nom_arabe": "البقرة", "nom_francais": "Al-Baqara", 
-        "type_revelation": "Médinoise", "nombre_versets": 286,
-        "profil_heptuple": {
-            "mysteres": 30, "creation": 60, "attributs": 40, 
-            "eschatologie": 70, "tawhid": 50, "guidance": 80, "egarement": 20
-        }
-    },
-    {
-        "id": 112, "numero": 112, 
-        "nom_arabe": "الإخلاص", "nom_francais": "Al-Ikhlas", 
-        "type_revelation": "Mecquoise", "nombre_versets": 4,
-        "profil_heptuple": {
-            "mysteres": 20, "creation": 10, "attributs": 95, 
-            "eschatologie": 5, "tawhid": 100, "guidance": 30, "egarement": 0
-        }
-    }
-]
+ 
 
 @app.get("/")
 async def root():
@@ -496,7 +467,9 @@ async def db_health():
 
 @app.get("/api/v2/search/advanced", response_model=List[SearchResult])
 async def advanced_search(query: str, search_type: str = "keyword", limit: int = 20, db: Session = Depends(get_db)):
-    """Recherche avancée dans le Coran et les hadiths (fallback LIKE)"""
+    """Recherche avancée dans le Coran et les hadiths (fallback LIKE)
+    Retourne uniquement des objets réels issus de la base sans valeurs factices.
+    """
     try:
         db_service = DatabaseService(db)
         results: List[SearchResult] = []
@@ -504,7 +477,9 @@ async def advanced_search(query: str, search_type: str = "keyword", limit: int =
         # Versets
         versets = db_service.search_versets(query, limit=limit)
         for v in versets:
-            s = db_service.get_sourate_by_numero(v.sourate_id)
+            s = db_service.get_sourate_by_id(v.sourate_id)
+            if not s:
+                continue
             verset_model = Verset(
                 id=v.id,
                 sourate_id=v.sourate_id,
@@ -512,24 +487,13 @@ async def advanced_search(query: str, search_type: str = "keyword", limit: int =
                 texte_arabe=v.texte_arabe,
                 traduction_francaise=v.traduction_francaise
             )
-            result = SearchResult(verset=verset_model, sourate=Sourate(
+            sourate_model = Sourate(
                 id=s.id, numero=s.numero, nom_arabe=s.nom_arabe, nom_francais=s.nom_francais,
                 type_revelation=s.type_revelation, nombre_versets=s.nombre_versets
-            ), similarity_score=None, score=None)
-            results.append(result)
+            )
+            results.append(SearchResult(verset=verset_model, sourate=sourate_model, similarity_score=None, score=None))
 
-        # Hadiths
-        hadiths = db_service.search_hadiths(query, limit=max(0, limit - len(results)))
-        for h in hadiths:
-            # On ne retourne pas de verset pour un hadith, mais on peut encapsuler minimalement
-            dummy_verset = Verset(id=0, sourate_id=0, numero_verset=0, texte_arabe="", traduction_francaise=None)
-            dummy_sourate = Sourate(id=0, numero=0, nom_arabe="", nom_francais="",
-                                    type_revelation="Mecquoise", nombre_versets=0)
-            result = SearchResult(verset=dummy_verset, sourate=dummy_sourate,
-                                   similarity_score=None, score=None,
-                                   highlights={"hadith": [h.texte_francais or h.texte_arabe]})
-            results.append(result)
-
+        # Hadiths: si besoin de les retourner, créer un endpoint/modele dédié. Ici, on reste strict: pas de dummy.
         return results[:limit]
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erreur de recherche: {str(e)}")

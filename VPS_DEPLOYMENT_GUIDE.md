@@ -86,6 +86,9 @@ psql -U heptuple_user -d heptuple_db -f /opt/heptuple-platform/db/schema_indexes
 
 # Exemples d'ingestion (remplacez par vos datasets réels)
 psql -U heptuple_user -d heptuple_db -f /opt/heptuple-platform/db/ingest_samples.sql || true
+
+# Ingestion depuis CSV (gabarits fournis dans db/csv_templates)
+psql -U heptuple_user -d heptuple_db -f /opt/heptuple-platform/db/ingest_from_csv.sql || true
 ```
 
 Ces scripts préparent la recherche rapide (trigram, GIN) pour hadiths, fiqh, invocations.

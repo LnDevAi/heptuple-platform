@@ -5,7 +5,9 @@ class AuthService {
   constructor() {
     this.token = localStorage.getItem('heptuple_token');
     this.user = JSON.parse(localStorage.getItem('heptuple_user') || 'null');
-    this.apiBase = process.env.REACT_APP_API_BASE || process.env.REACT_APP_API_URL || '';
+    const envBase = process.env.REACT_APP_API_BASE || process.env.REACT_APP_API_URL || '';
+    const inferredBase = typeof window !== 'undefined' ? `${window.location.origin}/api` : '';
+    this.apiBase = envBase || inferredBase;
     this.apiUrl = this.apiBase.endsWith('/api') ? this.apiBase : (this.apiBase ? `${this.apiBase}/api` : 'http://localhost:8000/api');
   }
 

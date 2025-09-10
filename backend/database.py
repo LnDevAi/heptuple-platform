@@ -5,8 +5,27 @@ from sqlalchemy.sql import func
 import os
 from typing import Generator
 
-# Configuration de la base de données
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://heptuple_user:heptuple_pass@localhost:5432/heptuple_db")
+"""
+Construction sûre de l'URL de base de données depuis les variables d'environnement.
+Évite les identifiants en dur et respecte un fallback minimal uniquement si toutes
+les variables nécessaires sont fournies.
+"""
+
+db_host = os.getenv("DB_HOST")
+db_port = os.getenv("DB_PORT")
+db_name = os.getenv("DB_NAME")
+db_user = os.getenv("DB_USER")
+db_password = os.getenv("DB_PASSWORD")
+
+env_database_url = os.getenv("DATABASE_URL")
+
+if env_database_url:
+    DATABASE_URL = env_database_url
+elif all([db_host, db_port, db_name, db_user, db_password]):
+    DATABASE_URL = f"postgresql://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}"
+else:
+    # Fallback local explicite et non recommandé pour la prod; penser à fournir un .env
+    DATABASE_URL = "postgresql://heptuple_user:heptuple_pass@localhost:5432/heptuple_db"
 
 # Création de l'engine SQLAlchemy
 engine = create_engine(
@@ -253,6 +272,18 @@ class FiqhRuling(Base):
     keywords = Column(ARRAY(String))
     created_at = Column(TIMESTAMP, default=func.now(), index=True)
 
+class Invocation(Base):
+    __tablename__ = "invocations"
+    id = Column(Integer, primary_key=True, index=True)
+    titre = Column(String(300), nullable=False)
+    texte_arabe = Column(Text, nullable=False)
+    texte_traduit = Column(Text)
+    source = Column(String(300))
+    categories = Column(ARRAY(String))
+    tags = Column(ARRAY(String))
+    temps_recommande = Column(ARRAY(String))
+    created_at = Column(TIMESTAMP, default=func.now(), index=True)
+
 class DatabaseService:
     def __init__(self, db: Session):
         self.db = db
@@ -351,6 +382,31 @@ class DatabaseService:
             or_(Hadith.texte_francais.ilike(q), Hadith.texte_arabe.ilike(q), Hadith.mots_cles.any(query))
         ).limit(limit).all()
 
+    def search_hadiths_authentic(self, query: str | None = None, recueils: list[str] | None = None,
+                                  authenticite: str | None = None, limit: int = 20, offset: int = 0):
+        """Recherche de hadiths authentiques avec filtres (recueils, authenticité, texte)."""
+        query_builder = self.db.query(Hadith)
+        if query:
+            q = f"%{query}%"
+            query_builder = query_builder.filter(
+                or_(
+                    Hadith.texte_francais.ilike(q),
+                    Hadith.texte_arabe.ilike(q),
+                    Hadith.narrateur.ilike(q),
+                    Hadith.recueil.ilike(q)
+                )
+            )
+        if recueils:
+            query_builder = query_builder.filter(Hadith.recueil.in_(recueils))
+        if authenticite:
+            query_builder = query_builder.filter(Hadith.degre_authenticite.ilike(authenticite))
+        return query_builder.offset(offset).limit(limit).all()
+
+    def get_hadiths_collections_summary(self) -> list[dict]:
+        """Retourne le nombre de hadiths par recueil."""
+        rows = self.db.query(Hadith.recueil, func.count(Hadith.id)).group_by(Hadith.recueil).order_by(func.count(Hadith.id).desc()).all()
+        return [{"recueil": r[0], "count": int(r[1])} for r in rows]
+
     def search_exegeses(self, query: str, limit: int = 20):
         q = f"%{query}%"
         return self.db.query(Exegese).filter(
@@ -381,3 +437,44 @@ class DatabaseService:
         if rite:
             filters.append(FiqhRuling.rite == rite)
         return self.db.query(FiqhRuling).filter(*filters).limit(limit).all()
+
+    def list_fiqh_rites(self) -> list[str]:
+        """Liste distincte des rites disponibles dans les rulings."""
+        rows = self.db.query(FiqhRuling.rite).distinct().all()
+        return [r[0] for r in rows if r[0]]
+
+    def search_fiqh_rulings(self, query: str | None = None, rite: str | None = None,
+                             topic: str | None = None, limit: int = 20, offset: int = 0):
+        """Recherche paginée de rulings fiqh avec filtres."""
+        qb = self.db.query(FiqhRuling)
+        if query:
+            q = f"%{query}%"
+            qb = qb.filter(or_(
+                FiqhRuling.topic.ilike(q),
+                FiqhRuling.question.ilike(q),
+                FiqhRuling.ruling_text.ilike(q)
+            ))
+        if rite:
+            qb = qb.filter(FiqhRuling.rite == rite)
+        if topic:
+            qb = qb.filter(FiqhRuling.topic.ilike(f"%{topic}%"))
+        return qb.offset(offset).limit(limit).all()
+
+    # Invocations (dou'a)
+    def search_invocations(self, query: str | None = None, categories: list[str] | None = None,
+                           tags: list[str] | None = None, limit: int = 20, offset: int = 0):
+        qb = self.db.query(Invocation)
+        if query:
+            q = f"%{query}%"
+            qb = qb.filter(or_(Invocation.titre.ilike(q), Invocation.texte_arabe.ilike(q), Invocation.texte_traduit.ilike(q)))
+        if categories:
+            for c in categories:
+                qb = qb.filter(Invocation.categories.any(c))
+        if tags:
+            for t in tags:
+                qb = qb.filter(Invocation.tags.any(t))
+        return qb.offset(offset).limit(limit).all()
+
+    def list_invocation_categories(self) -> list[str]:
+        rows = self.db.query(func.unnest(Invocation.categories)).distinct().all()
+        return [r[0] for r in rows if r[0]]

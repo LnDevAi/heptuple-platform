@@ -106,6 +106,7 @@ class SearchRequest(BaseModel):
     dimensions_filter: Optional[List[DimensionType]] = Field(None, description="Filtre par dimensions")
     sourates_filter: Optional[List[int]] = Field(None, description="Filtre par sourates")
     limit: int = Field(default=20, ge=1, le=100, description="Nombre maximum de résultats")
+    use_ai: bool = Field(default=False, description="Activer le reranking IA")
 
 class SearchResult(BaseModel):
     verset: Verset = Field(..., description="Verset trouvé")
@@ -185,6 +186,17 @@ class AnalyseEnrichie(BaseModel):
     citations: List[CitationModel] = []
     histoires: List[HistoireModel] = []
     score_enrichissement: float = Field(..., description="Score d'enrichissement")
+
+# Modèle d'invocation (dou'a)
+class InvocationModel(BaseModel):
+    id: Optional[int] = None
+    titre: str
+    texte_arabe: str
+    texte_traduit: Optional[str] = None
+    source: Optional[str] = None
+    categories: Optional[List[str]] = None
+    tags: Optional[List[str]] = None
+    temps_recommande: Optional[List[str]] = None  # matin, soir, après-prière, etc.
 
 # Modèles d'authentification
 class UserCreate(BaseModel):

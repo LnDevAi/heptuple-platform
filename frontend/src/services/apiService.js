@@ -5,7 +5,9 @@ import authService from './authService';
 
 class ApiService {
   constructor() {
-    this.apiBase = process.env.REACT_APP_API_BASE || process.env.REACT_APP_API_URL || '';
+    const envBase = process.env.REACT_APP_API_BASE || process.env.REACT_APP_API_URL || '';
+    const inferredBase = typeof window !== 'undefined' ? `${window.location.origin}/api` : '';
+    this.apiBase = envBase || inferredBase;
     this.apiUrl = this.apiBase.endsWith('/api') ? this.apiBase : (this.apiBase ? `${this.apiBase}/api` : 'http://localhost:8000/api');
   }
 
@@ -38,6 +40,81 @@ class ApiService {
     }
     
     return response.json();
+  }
+
+  /**
+   * Liste des recueils de hadiths (avec compte)
+   */
+  async getHadithCollections() {
+    return this.get('/v2/hadiths/collections');
+  }
+
+  /**
+   * Recherche de hadiths authentiques
+   */
+  async searchAuthenticHadiths({ query = '', recueils = [], authenticite = '', limit = 20, offset = 0 } = {}) {
+    const params = new URLSearchParams();
+    if (query) params.set('query', query);
+    if (recueils && recueils.length > 0) params.set('recueils', recueils.join(','));
+    if (authenticite) params.set('authenticite', authenticite);
+    params.set('limit', String(limit));
+    params.set('offset', String(offset));
+    const response = await authService.authenticatedRequest(`${this.apiUrl}/v2/hadiths?${params.toString()}`);
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: 'Erreur de recherche hadiths' }));
+      throw new Error(error.detail || `Erreur ${response.status}`);
+    }
+    return response.json();
+  }
+
+  /**
+   * Liste des rites disponibles
+   */
+  async listFiqhRites() {
+    return this.get('/v2/fiqh/rites');
+  }
+
+  /**
+   * Recherche paginée des rulings fiqh
+   */
+  async listFiqhRulings({ query = '', rite = '', topic = '', limit = 20, offset = 0 } = {}) {
+    const params = new URLSearchParams();
+    if (query) params.set('query', query);
+    if (rite) params.set('rite', rite);
+    if (topic) params.set('topic', topic);
+    params.set('limit', String(limit));
+    params.set('offset', String(offset));
+    const response = await authService.authenticatedRequest(`${this.apiUrl}/v2/fiqh/rulings?${params.toString()}`);
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: 'Erreur de recherche fiqh' }));
+      throw new Error(error.detail || `Erreur ${response.status}`);
+    }
+    return response.json();
+  }
+
+  /**
+   * Recherche d'invocations (dou'a)
+   */
+  async searchInvocations({ query = '', categories = [], tags = [], limit = 20, offset = 0 } = {}) {
+    const params = new URLSearchParams();
+    if (query) params.set('query', query);
+    if (categories && categories.length > 0) params.set('categories', categories.join(','));
+    if (tags && tags.length > 0) params.set('tags', tags.join(','));
+    params.set('limit', String(limit));
+    params.set('offset', String(offset));
+    const response = await authService.authenticatedRequest(`${this.apiUrl}/v2/invocations?${params.toString()}`);
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: 'Erreur de recherche invocations' }));
+      throw new Error(error.detail || `Erreur ${response.status}`);
+    }
+    return response.json();
+  }
+
+  /**
+   * Liste des catégories d'invocations
+   */
+  async listInvocationCategories() {
+    return this.get('/v2/invocations/categories');
   }
 
   /**
@@ -81,23 +158,25 @@ class ApiService {
   /**
    * Recherche universelle
    */
-  async universalSearch(query, searchTypes = ['coran', 'hadiths', 'fiqh'], filters = {}, limit = 20) {
+  async universalSearch(query, searchTypes = ['coran', 'hadiths', 'fiqh'], filters = {}, limit = 20, use_ai = false) {
     return this.post('/v2/search/universal', {
       query,
       search_types: searchTypes,
       filters,
-      limit
+      limit,
+      use_ai
     });
   }
 
   /**
    * Recherche dans le Coran
    */
-  async searchCoran(query, filters = {}, limit = 20) {
+  async searchCoran(query, filters = {}, limit = 20, ai = false) {
     const filterString = Object.keys(filters).length > 0 ? JSON.stringify(filters) : null;
     const params = new URLSearchParams({
       query,
-      limit: limit.toString()
+      limit: limit.toString(),
+      ai: ai ? 'true' : 'false'
     });
     
     if (filterString) {
@@ -117,11 +196,12 @@ class ApiService {
   /**
    * Recherche dans les Hadiths
    */
-  async searchHadiths(query, filters = {}, limit = 20) {
+  async searchHadiths(query, filters = {}, limit = 20, ai = false) {
     const filterString = Object.keys(filters).length > 0 ? JSON.stringify(filters) : null;
     const params = new URLSearchParams({
       query,
-      limit: limit.toString()
+      limit: limit.toString(),
+      ai: ai ? 'true' : 'false'
     });
     
     if (filterString) {
@@ -141,11 +221,12 @@ class ApiService {
   /**
    * Recherche dans le Fiqh
    */
-  async searchFiqh(query, filters = {}, limit = 20) {
+  async searchFiqh(query, filters = {}, limit = 20, ai = false) {
     const filterString = Object.keys(filters).length > 0 ? JSON.stringify(filters) : null;
     const params = new URLSearchParams({
       query,
-      limit: limit.toString()
+      limit: limit.toString(),
+      ai: ai ? 'true' : 'false'
     });
     
     if (filterString) {

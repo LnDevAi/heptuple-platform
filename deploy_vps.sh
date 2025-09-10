@@ -61,6 +61,8 @@ install_system_dependencies() {
         python3.11-venv \
         python3.11-dev \
         python3-pip \
+        nodejs \
+        npm \
         postgresql \
         postgresql-contrib \
         redis-server \
@@ -155,6 +157,18 @@ deploy_application() {
     pip install --upgrade pip
     pip install -r "$PROJECT_DIR/backend/requirements.txt"
     
+    # Build du frontend (React)
+    if [ -d "$PROJECT_DIR/frontend" ]; then
+        pushd "$PROJECT_DIR/frontend" >/dev/null
+        if command -v npm >/dev/null 2>&1; then
+            npm ci || npm install
+            npm run build
+        else
+            log_warning "npm non trouvé: le frontend ne sera pas buildé"
+        fi
+        popd >/dev/null
+    fi
+    
     # Configuration des permissions
     chown -R "$SERVICE_USER:$SERVICE_USER" "$PROJECT_DIR"
     chown -R "$SERVICE_USER:$SERVICE_USER" "$LOG_DIR"
@@ -245,17 +259,17 @@ server {
     access_log $LOG_DIR/nginx_access.log;
     error_log $LOG_DIR/nginx_error.log;
     
-    # Frontend React
+    # Frontend React (statique)
+    root $PROJECT_DIR/frontend/build;
+    index index.html;
     location / {
-        proxy_pass http://localhost:3000;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade \$http_upgrade;
-        proxy_set_header Connection 'upgrade';
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto \$scheme;
-        proxy_cache_bypass \$http_upgrade;
+        try_files \$uri /index.html;
+    }
+    
+    # Cache pour les assets
+    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
+        expires 1y;
+        add_header Cache-Control "public, immutable";
     }
     
     # API Backend

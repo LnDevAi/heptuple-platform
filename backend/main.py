@@ -19,12 +19,14 @@ from models import (
     ProfilHeptuple, AnalyseRequest, AnalyseResponse, 
     ComparisonRequest, SearchRequest, SearchResult,
     FeedbackRequest, Sourate, Verset, DimensionType,
-    HadithModel, ExegeseModel, CitationModel, HistoireModel,
+    HadithModel, ExegeseModel, CitationModel, HistoireModel, InvocationModel,
     UserCreate, UserLogin, Token, UserResponse
 )
 from services.heptuple_analyzer import HeptupleAnalyzer
 from services.auth_service import AuthService
 from services.search_service import SearchService
+from services.redis_service import RedisService
+from services.ai_service import AIService
 from database import get_db, DatabaseService, check_database_connection, User
 from sqlalchemy.orm import Session
 
@@ -72,6 +74,7 @@ app.add_middleware(
 analyzer = HeptupleAnalyzer()
 auth_service = AuthService()
 redis_service = RedisService()
+ai_service = AIService()
 
 # Cache simple en mémoire (fallback si Redis indisponible)
 analysis_cache = {}
@@ -134,36 +137,7 @@ def log_error(error: Exception, context: str = ""):
     """Log une erreur avec contexte"""
     logger.error(f"{context}: {str(error)}", exc_info=True)
 
-# Données des sourates (à remplacer par base de données)
-SOURATES_DATA = [
-    {
-        "id": 1, "numero": 1, 
-        "nom_arabe": "الفاتحة", "nom_francais": "Al-Fatiha", 
-        "type_revelation": "Mecquoise", "nombre_versets": 7,
-        "profil_heptuple": {
-            "mysteres": 85, "creation": 20, "attributs": 90, 
-            "eschatologie": 15, "tawhid": 95, "guidance": 80, "egarement": 10
-        }
-    },
-    {
-        "id": 2, "numero": 2, 
-        "nom_arabe": "البقرة", "nom_francais": "Al-Baqara", 
-        "type_revelation": "Médinoise", "nombre_versets": 286,
-        "profil_heptuple": {
-            "mysteres": 30, "creation": 60, "attributs": 40, 
-            "eschatologie": 70, "tawhid": 50, "guidance": 80, "egarement": 20
-        }
-    },
-    {
-        "id": 112, "numero": 112, 
-        "nom_arabe": "الإخلاص", "nom_francais": "Al-Ikhlas", 
-        "type_revelation": "Mecquoise", "nombre_versets": 4,
-        "profil_heptuple": {
-            "mysteres": 20, "creation": 10, "attributs": 95, 
-            "eschatologie": 5, "tawhid": 100, "guidance": 30, "egarement": 0
-        }
-    }
-]
+ 
 
 @app.get("/")
 async def root():
@@ -395,7 +369,6 @@ async def analyze_text_enriched(request: AnalyseRequest, db: Session = Depends(g
         
         # Enrichissement avec références
         db_service = DatabaseService(db)
-        dimension = result["dimension_dominante"]
         
         # Récupération des références par dimension
         hadiths = db_service.get_hadiths_by_dimension(str(int(analysis.dimension_dominante)), 3)
@@ -495,8 +468,10 @@ async def db_health():
         return JSONResponse(status_code=500, content={"database": "error", "detail": str(e)})
 
 @app.get("/api/v2/search/advanced", response_model=List[SearchResult])
-async def advanced_search(query: str, search_type: str = "keyword", limit: int = 20, db: Session = Depends(get_db)):
-    """Recherche avancée dans le Coran et les hadiths (fallback LIKE)"""
+async def advanced_search(query: str, search_type: str = "keyword", limit: int = 20, ai: Optional[bool] = False, db: Session = Depends(get_db)):
+    """Recherche avancée dans le Coran et les hadiths (fallback LIKE)
+    Retourne uniquement des objets réels issus de la base sans valeurs factices.
+    """
     try:
         db_service = DatabaseService(db)
         results: List[SearchResult] = []
@@ -504,7 +479,9 @@ async def advanced_search(query: str, search_type: str = "keyword", limit: int =
         # Versets
         versets = db_service.search_versets(query, limit=limit)
         for v in versets:
-            s = db_service.get_sourate_by_numero(v.sourate_id)
+            s = db_service.get_sourate_by_id(v.sourate_id)
+            if not s:
+                continue
             verset_model = Verset(
                 id=v.id,
                 sourate_id=v.sourate_id,
@@ -512,23 +489,19 @@ async def advanced_search(query: str, search_type: str = "keyword", limit: int =
                 texte_arabe=v.texte_arabe,
                 traduction_francaise=v.traduction_francaise
             )
-            result = SearchResult(verset=verset_model, sourate=Sourate(
+            sourate_model = Sourate(
                 id=s.id, numero=s.numero, nom_arabe=s.nom_arabe, nom_francais=s.nom_francais,
                 type_revelation=s.type_revelation, nombre_versets=s.nombre_versets
-            ), similarity_score=None, score=None)
-            results.append(result)
+            )
+            results.append(SearchResult(verset=verset_model, sourate=sourate_model, similarity_score=None, score=None))
 
-        # Hadiths
-        hadiths = db_service.search_hadiths(query, limit=max(0, limit - len(results)))
-        for h in hadiths:
-            # On ne retourne pas de verset pour un hadith, mais on peut encapsuler minimalement
-            dummy_verset = Verset(id=0, sourate_id=0, numero_verset=0, texte_arabe="", traduction_francaise=None)
-            dummy_sourate = Sourate(id=0, numero=0, nom_arabe="", nom_francais="",
-                                    type_revelation="Mecquoise", nombre_versets=0)
-            result = SearchResult(verset=dummy_verset, sourate=dummy_sourate,
-                                   similarity_score=None, score=None,
-                                   highlights={"hadith": [h.texte_francais or h.texte_arabe]})
-            results.append(result)
+        # Reranking IA optionnel (sur le texte arabe + traduction)
+        if ai:
+            results = ai_service.rerank_search_results(
+                query,
+                results,
+                lambda r: (r.verset.traduction_francaise or "") + " " + (r.verset.texte_arabe or "")
+            )
 
         return results[:limit]
     except Exception as e:
@@ -584,6 +557,51 @@ async def get_hadiths_by_dimension(dimension: str, limit: int = 10, db: Session 
             contexte_historique=h.contexte_historique
         ) for h in hadiths]
         
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erreur: {str(e)}")
+
+@app.get("/api/v2/hadiths/collections")
+async def get_hadiths_collections(db: Session = Depends(get_db)):
+    """Retourne la liste des recueils avec leur nombre de hadiths (BD réelle)."""
+    try:
+        db_service = DatabaseService(db)
+        return db_service.get_hadiths_collections_summary()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erreur: {str(e)}")
+
+@app.get("/api/v2/hadiths")
+async def search_hadiths_authentic(
+    query: Optional[str] = None,
+    recueils: Optional[str] = None,  # CSV: "Bukhari,Muslim"
+    authenticite: Optional[str] = None,  # ex: "Sahih%"
+    limit: int = 20,
+    offset: int = 0,
+    db: Session = Depends(get_db)
+):
+    """Recherche de hadiths authentiques par texte/recueil/authenticité (BD réelle)."""
+    try:
+        db_service = DatabaseService(db)
+        rec_list = [r.strip() for r in recueils.split(',')] if recueils else None
+        hadiths = db_service.search_hadiths_authentic(query=query, recueils=rec_list,
+                                                      authenticite=authenticite, limit=limit, offset=offset)
+        return [
+            {
+                "id": h.id,
+                "numero_hadith": h.numero_hadith,
+                "recueil": h.recueil,
+                "livre": h.livre,
+                "chapitre": h.chapitre,
+                "texte_arabe": h.texte_arabe,
+                "texte_francais": h.texte_francais,
+                "narrateur": h.narrateur,
+                "degre_authenticite": h.degre_authenticite,
+                "dimension_heptuple": h.dimension_heptuple,
+                "mots_cles": h.mots_cles or [],
+                "themes": h.themes or [],
+                "contexte_historique": h.contexte_historique
+            }
+            for h in hadiths
+        ]
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erreur: {str(e)}")
 
@@ -995,6 +1013,88 @@ async def search_fiqh_advanced(
     except Exception as e:
         log_error(e, "Erreur de recherche Fiqh")
         raise HTTPException(status_code=500, detail="Erreur de recherche Fiqh")
+
+# ===== MODULE FIQH (RITES) =====
+
+@app.get("/api/v2/fiqh/rites")
+async def list_fiqh_rites(db: Session = Depends(get_db)):
+    """Liste des rites disponibles (BD réelle)."""
+    try:
+        db_service = DatabaseService(db)
+        return {"rites": db_service.list_fiqh_rites()}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erreur: {str(e)}")
+
+# ===== MODULE INVOCATIONS =====
+
+@app.get("/api/v2/invocations")
+async def search_invocations(
+    query: Optional[str] = None,
+    categories: Optional[str] = None,  # CSV
+    tags: Optional[str] = None,  # CSV
+    limit: int = 20,
+    offset: int = 0,
+    db: Session = Depends(get_db)
+):
+    """Recherche d'invocations (dou'a) dans la BD avec filtres et pagination."""
+    try:
+        db_service = DatabaseService(db)
+        cat_list = [c.strip() for c in categories.split(',')] if categories else None
+        tag_list = [t.strip() for t in tags.split(',')] if tags else None
+        invocs = db_service.search_invocations(query=query, categories=cat_list, tags=tag_list, limit=limit, offset=offset)
+        return [
+            InvocationModel(
+                id=i.id,
+                titre=i.titre,
+                texte_arabe=i.texte_arabe,
+                texte_traduit=i.texte_traduit,
+                source=i.source,
+                categories=i.categories or [],
+                tags=i.tags or [],
+                temps_recommande=i.temps_recommande or []
+            )
+            for i in invocs
+        ]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erreur: {str(e)}")
+
+@app.get("/api/v2/invocations/categories")
+async def list_invocation_categories(db: Session = Depends(get_db)):
+    """Liste des catégories d'invocations disponibles."""
+    try:
+        db_service = DatabaseService(db)
+        return {"categories": db_service.list_invocation_categories()}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erreur: {str(e)}")
+
+@app.get("/api/v2/fiqh/rulings")
+async def list_fiqh_rulings(
+    query: Optional[str] = None,
+    rite: Optional[str] = None,
+    topic: Optional[str] = None,
+    limit: int = 20,
+    offset: int = 0,
+    db: Session = Depends(get_db)
+):
+    """Recherche paginée des rulings fiqh (BD réelle)."""
+    try:
+        db_service = DatabaseService(db)
+        rulings = db_service.search_fiqh_rulings(query=query, rite=rite, topic=topic, limit=limit, offset=offset)
+        return [
+            {
+                "id": r.id,
+                "rite": r.rite,
+                "topic": r.topic,
+                "question": r.question,
+                "ruling_text": r.ruling_text,
+                "evidences": r.evidences or [],
+                "sources": r.sources or [],
+                "keywords": r.keywords or []
+            }
+            for r in rulings
+        ]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erreur: {str(e)}")
 
 # Fonctions utilitaires
 def calculate_similarity(profile_a: Dict, profile_b: Dict) -> float:

@@ -1,0 +1,3 @@
+numero_hadith,recueil,livre,chapitre,texte_arabe,texte_francais,narrateur,degre_authenticite,dimension_heptuple,mots_cles,themes,contexte_historique
+1,Bukhari,Livre de la foi,Chapitre 1,إِنَّمَا الأَعْمَالُ بِالنِّيَّاتِ,Les actions ne valent que par les intentions,Omar ibn al-Khattab,Sahih,5,"{intention,foi}","{aqida}",Médine
+2,Muslim,Livre de la prière,Chapitre 2,الصلاة عماد الدين,La prière est le pilier de la religion,Anas ibn Malik,Sahih,6,"{prière,salat}","{fiqh}",Médine

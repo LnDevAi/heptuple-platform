@@ -26,6 +26,7 @@ from services.heptuple_analyzer import HeptupleAnalyzer
 from services.auth_service import AuthService
 from services.search_service import SearchService
 from services.redis_service import RedisService
+from services.ai_service import AIService
 from database import get_db, DatabaseService, check_database_connection, User
 from sqlalchemy.orm import Session
 
@@ -73,6 +74,7 @@ app.add_middleware(
 analyzer = HeptupleAnalyzer()
 auth_service = AuthService()
 redis_service = RedisService()
+ai_service = AIService()
 
 # Cache simple en mémoire (fallback si Redis indisponible)
 analysis_cache = {}
@@ -466,7 +468,7 @@ async def db_health():
         return JSONResponse(status_code=500, content={"database": "error", "detail": str(e)})
 
 @app.get("/api/v2/search/advanced", response_model=List[SearchResult])
-async def advanced_search(query: str, search_type: str = "keyword", limit: int = 20, db: Session = Depends(get_db)):
+async def advanced_search(query: str, search_type: str = "keyword", limit: int = 20, ai: Optional[bool] = False, db: Session = Depends(get_db)):
     """Recherche avancée dans le Coran et les hadiths (fallback LIKE)
     Retourne uniquement des objets réels issus de la base sans valeurs factices.
     """
@@ -493,7 +495,14 @@ async def advanced_search(query: str, search_type: str = "keyword", limit: int =
             )
             results.append(SearchResult(verset=verset_model, sourate=sourate_model, similarity_score=None, score=None))
 
-        # Hadiths: si besoin de les retourner, créer un endpoint/modele dédié. Ici, on reste strict: pas de dummy.
+        # Reranking IA optionnel (sur le texte arabe + traduction)
+        if ai:
+            results = ai_service.rerank_search_results(
+                query,
+                results,
+                lambda r: (r.verset.traduction_francaise or "") + " " + (r.verset.texte_arabe or "")
+            )
+
         return results[:limit]
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erreur de recherche: {str(e)}")

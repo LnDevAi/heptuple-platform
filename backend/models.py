@@ -106,6 +106,7 @@ class SearchRequest(BaseModel):
     dimensions_filter: Optional[List[DimensionType]] = Field(None, description="Filtre par dimensions")
     sourates_filter: Optional[List[int]] = Field(None, description="Filtre par sourates")
     limit: int = Field(default=20, ge=1, le=100, description="Nombre maximum de résultats")
+    use_ai: bool = Field(default=False, description="Activer le reranking IA")
 
 class SearchResult(BaseModel):
     verset: Verset = Field(..., description="Verset trouvé")

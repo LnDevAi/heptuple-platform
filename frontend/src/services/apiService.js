@@ -158,23 +158,25 @@ class ApiService {
   /**
    * Recherche universelle
    */
-  async universalSearch(query, searchTypes = ['coran', 'hadiths', 'fiqh'], filters = {}, limit = 20) {
+  async universalSearch(query, searchTypes = ['coran', 'hadiths', 'fiqh'], filters = {}, limit = 20, use_ai = false) {
     return this.post('/v2/search/universal', {
       query,
       search_types: searchTypes,
       filters,
-      limit
+      limit,
+      use_ai
     });
   }
 
   /**
    * Recherche dans le Coran
    */
-  async searchCoran(query, filters = {}, limit = 20) {
+  async searchCoran(query, filters = {}, limit = 20, ai = false) {
     const filterString = Object.keys(filters).length > 0 ? JSON.stringify(filters) : null;
     const params = new URLSearchParams({
       query,
-      limit: limit.toString()
+      limit: limit.toString(),
+      ai: ai ? 'true' : 'false'
     });
     
     if (filterString) {
@@ -194,11 +196,12 @@ class ApiService {
   /**
    * Recherche dans les Hadiths
    */
-  async searchHadiths(query, filters = {}, limit = 20) {
+  async searchHadiths(query, filters = {}, limit = 20, ai = false) {
     const filterString = Object.keys(filters).length > 0 ? JSON.stringify(filters) : null;
     const params = new URLSearchParams({
       query,
-      limit: limit.toString()
+      limit: limit.toString(),
+      ai: ai ? 'true' : 'false'
     });
     
     if (filterString) {
@@ -218,11 +221,12 @@ class ApiService {
   /**
    * Recherche dans le Fiqh
    */
-  async searchFiqh(query, filters = {}, limit = 20) {
+  async searchFiqh(query, filters = {}, limit = 20, ai = false) {
     const filterString = Object.keys(filters).length > 0 ? JSON.stringify(filters) : null;
     const params = new URLSearchParams({
       query,
-      limit: limit.toString()
+      limit: limit.toString(),
+      ai: ai ? 'true' : 'false'
     });
     
     if (filterString) {

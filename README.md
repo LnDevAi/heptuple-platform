@@ -129,6 +129,10 @@ SECRET_KEY=your_secret_key_32_chars_minimum
 
 # IA/ML (optionnel)
 OPENAI_API_KEY=your_openai_key
+DEEPSEEK_API_BASE=https://api.deepseek.com
+DEEPSEEK_API_KEY=xxxxx_votre_cle_xxxxx
+DEEPSEEK_MODEL=deepseek-chat
+DEEPSEEK_TIMEOUT=30
 ```
 
 ### **Personnalisation**

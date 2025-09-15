@@ -25,7 +25,10 @@ from models import (
 from services.heptuple_analyzer import HeptupleAnalyzer
 from services.auth_service import AuthService
 from services.search_service import SearchService
+from services import DeepSeekService
+from models import ChatRequest, ChatResponse
 from database import get_db, DatabaseService, check_database_connection, User
+from services.redis_service import RedisService
 from sqlalchemy.orm import Session
 
 # Configuration du logging
@@ -72,6 +75,7 @@ app.add_middleware(
 analyzer = HeptupleAnalyzer()
 auth_service = AuthService()
 redis_service = RedisService()
+deepseek_service = DeepSeekService() if DeepSeekService else None
 
 # Cache simple en mémoire (fallback si Redis indisponible)
 analysis_cache = {}
@@ -179,7 +183,8 @@ async def root():
             "sourates": "/api/v2/sourates",
             "compare": "/api/v2/compare",
             "search": "/api/v2/search",
-            "feedback": "/api/v2/feedback"
+            "feedback": "/api/v2/feedback",
+            "ai_chat": "/api/v2/ai/chat"
         }
     }
 
@@ -359,6 +364,52 @@ async def analyze_text(
     except Exception as e:
         log_error(e, "Erreur lors de l'analyse")
         raise HTTPException(status_code=500, detail="Erreur lors de l'analyse")
+
+
+@app.post("/api/v2/ai/chat", response_model=ChatResponse)
+async def ai_chat(request: ChatRequest, current_user: User = Depends(get_current_active_user)):
+    """Chat IA via DeepSeek."""
+    try:
+        if deepseek_service is None:
+            raise HTTPException(status_code=503, detail="Service DeepSeek non configuré")
+
+        # Cache simple basé sur la dernière question de l'utilisateur
+        last_user_msg = next((m.content for m in reversed(request.messages) if m.role == "user"), None)
+        cache_key = None
+        cached = None
+        if last_user_msg:
+            cache_key = f"ai:chat:{hashlib.sha256(last_user_msg.encode()).hexdigest()}"
+            cached = redis_service.get_cache(cache_key)
+        if cached and isinstance(cached, dict) and cached.get("content"):
+            return ChatResponse(**cached)
+
+        ds_messages = [{"role": m.role, "content": m.content} for m in request.messages]
+        data = await deepseek_service.chat(
+            messages=ds_messages,
+            temperature=request.temperature,
+            max_tokens=request.max_tokens,
+            stream=False,
+            response_format=request.response_format
+        )
+
+        # Extraction style OpenAI
+        choice = (data.get("choices") or [{}])[0]
+        message = choice.get("message") or {}
+        content = message.get("content") or ""
+        finish_reason = choice.get("finish_reason")
+        model_name = data.get("model")
+        result = ChatResponse(content=content, model=model_name, finish_reason=finish_reason, raw=data)
+
+        # Mise en cache courte
+        if cache_key:
+            redis_service.set_cache(cache_key, result.model_dump(), expire_seconds=300)
+
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        log_error(e, "Erreur DeepSeek chat")
+        raise HTTPException(status_code=500, detail="Erreur du service IA")
 
 @app.post("/api/v2/analyze-enriched")
 async def analyze_text_enriched(request: AnalyseRequest, db: Session = Depends(get_db)):

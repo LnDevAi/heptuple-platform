@@ -201,6 +201,20 @@ class ApiService {
   }
 
   /**
+   * Chat IA via DeepSeek
+   */
+  async aiChat(messages, options = {}) {
+    const payload = {
+      messages,
+      temperature: options.temperature ?? 0.7,
+      max_tokens: options.max_tokens,
+      stream: false,
+      response_format: options.response_format
+    };
+    return this.post('/v2/ai/chat', payload);
+  }
+
+  /**
    * Vérifie la santé de l'API
    */
   async healthCheck() {

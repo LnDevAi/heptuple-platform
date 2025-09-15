@@ -228,3 +228,22 @@ class SearchFilters(BaseModel):
     authenticite: Optional[str] = Field(None, description="Degré d'authenticité")
     rite: Optional[str] = Field(None, description="Rite juridique")
     topic: Optional[str] = Field(None, description="Sujet de jurisprudence")
+
+# ===== Modèles DeepSeek Chat =====
+
+class ChatMessage(BaseModel):
+    role: str = Field(..., pattern="^(system|user|assistant|tool)$")
+    content: str
+
+class ChatRequest(BaseModel):
+    messages: List[ChatMessage]
+    temperature: Optional[float] = 0.7
+    max_tokens: Optional[int] = None
+    stream: Optional[bool] = False
+    response_format: Optional[Dict[str, Any]] = None
+
+class ChatResponse(BaseModel):
+    content: str
+    model: Optional[str] = None
+    finish_reason: Optional[str] = None
+    raw: Optional[Dict[str, Any]] = None

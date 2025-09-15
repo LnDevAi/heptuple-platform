@@ -87,6 +87,12 @@ class Config:
         
         # Configuration de l'instance
         self.INSTANCE_ID = os.getenv("INSTANCE_ID", "0")
+
+        # Configuration DeepSeek (assistant IA)
+        self.DEEPSEEK_API_BASE = os.getenv("DEEPSEEK_API_BASE", "https://api.deepseek.com")
+        self.DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY", "")
+        self.DEEPSEEK_MODEL = os.getenv("DEEPSEEK_MODEL", "deepseek-chat")
+        self.DEEPSEEK_TIMEOUT = int(os.getenv("DEEPSEEK_TIMEOUT", "30"))
     
     def get_database_url(self) -> str:
         """Retourne l'URL de connexion à la base de données"""
@@ -148,6 +154,14 @@ class Config:
                 "debug": self.DEBUG,
                 "log_level": self.LOG_LEVEL,
                 "instance_id": self.INSTANCE_ID
+            },
+            "ai": {
+                "deepseek": {
+                    "api_base": self.DEEPSEEK_API_BASE,
+                    "model": self.DEEPSEEK_MODEL,
+                    "timeout": self.DEEPSEEK_TIMEOUT,
+                    "configured": bool(self.DEEPSEEK_API_KEY)
+                }
             }
         }
 

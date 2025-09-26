@@ -101,7 +101,7 @@ services:
       - api_data:/app/data
       - api_backup:/app/backup
     ports:
-      - "${API_PORT:-8000}:8000"
+      - "8000"
     networks:
       - heptuple-network
     depends_on:

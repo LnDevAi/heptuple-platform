@@ -17,7 +17,7 @@ services:
       - ./sourates_complete.sql:/docker-entrypoint-initdb.d/sourates_complete.sql
       - ./extensions_references.sql:/docker-entrypoint-initdb.d/extensions_references.sql
     ports:
-      - "${DB_PORT:-5432}:5432"
+      - "5432"
     networks:
       - heptuple-network
     healthcheck:
@@ -36,7 +36,7 @@ services:
     volumes:
       - redis_data:/data
     ports:
-      - "${REDIS_PORT:-6379}:6379"
+      - "6379"
     networks:
       - heptuple-network
     healthcheck:
@@ -59,8 +59,8 @@ services:
     volumes:
       - elasticsearch_data:/usr/share/elasticsearch/data
     ports:
-      - "${ELASTICSEARCH_PORT:-9200}:9200"
-      - "9300:9300"
+      - "9200"
+      - "9300"
     networks:
       - heptuple-network
     healthcheck:
@@ -126,13 +126,13 @@ services:
     container_name: heptuple-frontend-${INSTANCE_ID:-0}
     restart: unless-stopped
     environment:
-      - REACT_APP_API_URL=http://localhost:${NGINX_PORT:-8080}/api
+      - REACT_APP_API_URL=/api
       - REACT_APP_ENVIRONMENT=${ENVIRONMENT:-production}
       - INSTANCE_ID=${INSTANCE_ID:-0}
     volumes:
       - frontend_logs:/var/log/nginx
     ports:
-      - "${FRONTEND_PORT:-3000}:3000"
+      - "3000"
     networks:
       - heptuple-network
     depends_on:
@@ -155,8 +155,8 @@ services:
       - nginx_logs:/var/log/nginx
       - nginx_cache:/var/cache/nginx
     ports:
-      - "${NGINX_PORT:-8080}:80"
-      - "8443:443"
+      - "80"
+      - "443"
     networks:
       - heptuple-network
     depends_on:
@@ -184,7 +184,7 @@ services:
       - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus_data:/prometheus
     ports:
-      - "${PROMETHEUS_PORT:-9090}:9090"
+      - "9090"
     networks:
       - heptuple-network
 
@@ -201,7 +201,7 @@ services:
       - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
       - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources:ro
     ports:
-      - "${GRAFANA_PORT:-3001}:3000"
+      - "3000"
     networks:
       - heptuple-network
     depends_on:
